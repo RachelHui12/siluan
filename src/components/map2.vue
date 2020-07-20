@@ -14,29 +14,6 @@
     <div class="upload" @click="upload()">
       <el-button type="small" circle icon="el-icon-upload"></el-button>
     </div>
-    <!-- <div class="footer-bar">
-      <div class="tags">
-        <el-tag style="width: 134px;">Selected position(s)</el-tag>
-        <div class=" position-wrap">
-          <el-tag v-for="(tag, index) in positions" :key="`positions-${index}`" closable :disable-transitions="false"
-            @close="handleClose(tag)">
-            {{`${Math.round(tag.lng * 10000) /10000},${Math.round(tag.lat * 10000) /10000}`}}
-          </el-tag>
-        </div>
-        <el-input class="input-new-tag" v-if="inputVisible" v-model="inputValue" ref="saveTagInput" size="small"
-          @keyup.enter.native="handleInputConfirm" @blur="handleInputConfirm" placeholder="lng,lat">
-        </el-input>
-        <el-button v-else class="button-new-tag" size="small" @click="showInput">+ New Position</el-button>
-      </div>
-      <div class="operation">
-        <el-tag type="success" style="height:40px; padding: 4px 27.4px;">Polygon Area</el-tag>
-        <el-input v-model="area" readonly></el-input>
-        <el-select v-model="unit">
-          <el-option v-for="item in unitList" :key="item.value" :label="item.label" :value="item.value">
-          </el-option>
-        </el-select>
-      </div>
-    </div> -->
   </div>
 
 </template>
@@ -49,6 +26,8 @@ import MapboxDraw from 'mapbox-gl-draw'
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { Dialog } from 'vant';
+import {mapGetters} from 'vuex'
+import store from '@/store'
 export default {
     
     data(){
@@ -90,26 +69,18 @@ export default {
         }
         },
         computed: {
-        area: function () {
-        if (this.rawArea){
-            switch (this.unit) {
-            case 0:
-                return this.rawArea;
-            case 1:
-                return this.rawArea * 0.0001;
-            case 2:
-                return this.rawArea * 0.0015;
-            default:
-                return null;
-            }
-        } else {
-            return null;
-        }
-        }
+          ...mapGetters({
+            center:'getMapcenter',
+            zoom:'getzoom'
+          }),
+
   },
   mounted() {
     this.initMap();
     // this.welcome();
+  },
+  beforeDestroy(){
+      this.savemapoptions();
   },
   watch: {
     positions: function () {
@@ -148,69 +119,26 @@ export default {
     }
   },
   methods: {
-    handleClose(tag) {
-      this.rawArea = null;
-      this.positions.splice(this.positions.indexOf(tag), 1);
-    },
-    showInput() {
-      this.inputVisible = true;
-      this.$nextTick(_ => {
-        this.$refs.saveTagInput.$refs.input.focus();
-      });
-    },
-    handleInputConfirm() {
-      // this.rawArea = null;
-      let inputValue = this.inputValue;
-      const lngPattern = /^[\-\+]?(((\d|[1-9]\d|1[1-7]\d)\.\d+)|(\d|[1-9]\d|1[1-7]\d)|180\.\0+|180)$/;
-      const latPattern = /^[\-\+]?([0-8]?\d{1}\.\d+|90\.0+|[0-8]?\d{1}|90)$/;
-      if(inputValue) {
-        inputValue = inputValue.split(',');
-        if(inputValue.length == 2 && lngPattern.test(inputValue[0]) && latPattern.test(inputValue[1])) {
-          this.positions.push({
-            lng: parseFloat(inputValue[0]),
-            lat: parseFloat(inputValue[1]),
-          });
-          this.inputValue = '';
-          this.inputVisible = false;
-          if(this.positions.length === 1) {
-            this.mapOptions.map.flyTo({
-              center: [this.positions[0].lng, this.positions[0].lat]
-            });
-          } else {
-            let line = turf.lineString(this.positions.map(p => [p.lng, p.lat]));
-            let bbox = turf.bbox(line)
-            this.mapOptions.map.fitBounds(bbox, {
-              padding: {top: 100, bottom:100, left: 50, right: 50}
-            });
-          }
-        } else {
-          this.showError('There is a problem with the position format!');
-          return;
-        }
-      } else {
-        this.inputVisible = false;
-      }
-    },
-    showError(message) {
-      this.$notify.error({
-        title: 'ERROR',
-        message,
-      })
-    },
-    welcome() {
-      this.$alert('你可以使用绘图工具来画一个多边形，也可以按顺时针或逆时针输入一组坐标，点击计算即可得到这个多边形的面积😋',
-       '地理多边形面积计算');
-    },
+     savemapoptions(){
+       var center_json=this.mapOptions.map.getCenter();
+       var center=[center_json.lng,center_json.lat];
+       this.$store.dispatch('changecenter',center);
+       var zoom = this.mapOptions.map.getZoom();
+       this.$store.dispatch('changezoom',zoom);
+       console.log(zoom);
+     },
+    //初始化地图
     initMap() {
-        const mapboxToken = 'pk.eyJ1IjoiY3N0YW8iLCJhIjoiY2p1eThkYjgzMHNvbzQ0cnhqd3c3OTU1biJ9.vT96vIXE74LTVV4xXrv0Zw';
-
+      const mapboxToken = 'pk.eyJ1IjoiY3N0YW8iLCJhIjoiY2p1eThkYjgzMHNvbzQ0cnhqd3c3OTU1biJ9.vT96vIXE74LTVV4xXrv0Zw';
       mapboxgl.accessToken = mapboxToken;
       this.mapOptions.map = new mapboxgl.Map({
         container: 'map', // container id
         style: 'mapbox://styles/mapbox/satellite-v9', //hosted style id
-        center: [-91.874, 42.76], // starting position
-        zoom: 6, // starting zoom,
+        center:this.center, // starting position
+        zoom: this.zoom, // starting zoom,
       });
+       console.log(this.mapOptions.map.getCenter());
+
       this.mapOptions.draw = new MapboxDraw({
         displayControlsDefault: false,
         controls: {
@@ -224,7 +152,7 @@ export default {
         new MapboxGeocoder({
         accessToken: mapboxgl.accessToken,
         localGeocoder: this.forwardGeocoder,
-        zoom: 6,
+        zoom: this.zoom,
         placeholder: 'Enter search e.g. Lincoln Park',
         mapboxgl: mapboxgl
         })
@@ -237,7 +165,8 @@ export default {
           positionOptions: {
               enableHighAccuracy: true
           },
-          trackUserLocation: true
+          zoom: this.zoom,
+          showUserLocation:false
       }));
 
       this.mapOptions.map.on('draw.update', this.updateArea)
@@ -409,21 +338,19 @@ export default {
       } 
     },
     inputmarker(obj){
-        EventBus.$emit("upload",{
-          feature: obj['features']
-        });
+        console.log(obj);
+        EventBus.$emit("upload",obj['features']);
+        store.dispatch('changefeatures',obj);
         this.$router.push('/form');
     },
     upload(){
       var re= this.mapOptions.draw.getSelected();
-      console.log(re);
       if(re['features'].length ==0){
          Dialog({ message: '没有选择任何图形' });
 
       }
       else{
       this.inputmarker(re);
-
       }
     }
   },

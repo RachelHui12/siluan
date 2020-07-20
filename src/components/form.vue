@@ -67,7 +67,9 @@
 
 <script>
 import { EventBus } from "../eventbus.js";
-
+import axios from 'axios';
+import {mapGetters} from 'vuex'
+import store from '@/store'
 export default {
     data(){
         return{
@@ -77,11 +79,16 @@ export default {
             date:'',
             dates: '',
             showCalendar: false,
-            uploader:[{ url: 'https://img.yzcdn.cn/vant/leaf.jpg' }],
+            uploader:[],
             columns: ['乱建', '乱堆', '乱占', '乱采'],
             showPicker: false,
             fea:null
         }
+    },
+    computed:{
+      ...mapGetters({
+				feature:'getfeature',
+			}),
     },
     methods:{
     ondate(date) {
@@ -94,26 +101,34 @@ export default {
           type:this.type,
           des:this.description,
           photo:this.uploader,
-          date:this.date,
-          fea:this.fea
+          date:this.dates,
+          fea:this.feature
         }
+        
         console.log(upload);
+        axios.post('api/upload',upload);
         this.$router.push('/map');
     },
     ontype(value) {
       this.type = value;
       this.showPicker = false;
+      console.log(this.fea);
+
     },
     onClickLeft(){
       this.$router.push('/map');
     },
-
+    loadfeature(feature){
+      console.log('111');
+      this.fea=feature;
+    }
     },
-    mounted(){
-      EventBus.$on("upload", ({feature}) => {
-          this.fea = feature;
-          console.log( this.fea);
-      });
+    created(){
+      console.log(store.state.feature);
+      EventBus.$on("upload", this.loadfeature);
+    },
+    beforeDestroy(){
+      EventBus.$off("upload", this.loadfeature);
     }
 }
 </script>

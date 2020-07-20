@@ -7,6 +7,7 @@ import ElementUI from 'element-ui';
 import 'element-ui/lib/theme-chalk/index.css';
 import Vant from 'vant';
 import 'vant/lib/index.css';
+import store from './store/index'
 import axios from 'axios';
 Vue.prototype.$axios=axios;
 Vue.use(Vant);
@@ -22,6 +23,7 @@ Vue.use(NavBar);
 new Vue({
   el: '#app',
   router,
+  store,
   components: { App },
   template: '<App/>'
 })

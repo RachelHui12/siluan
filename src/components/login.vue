@@ -33,14 +33,14 @@
       <button @click="handleLogin" :disabled="isClick">登录</button>
     </div>
 	<div v-if="status">
-     <p style="color:red;">用户名或密码错误</p>
+     <p style="color:red;">用户名重复</p>
     </div>
 	</div>
 </template>
 <script>
 	import InputGroup from './InputGroup'
-import axios from 'axios';
-
+	import axios from 'axios';
+	import { Dialog } from 'vant';
 	export default {
 		name:"login",
 		data() {
@@ -90,8 +90,20 @@ import axios from 'axios';
 						this.$router.push('/map');
 						this.status=false;
 					}
-					else{
+					else if(response.data=='-1'){
 						this.status=true;
+
+					}
+					else{
+						// Dialog({ message: '注册成功！' });
+						Dialog.alert({
+						message: '注册成功！',
+						}).then(() => {
+						// on close
+						this.$router.push('/map');
+						this.status=false;
+						});
+
 					}
 					}) ;
 				// if(this.phone=='admin' && this.verifyCode=='123'){
