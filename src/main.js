@@ -14,7 +14,9 @@ Vue.use(Vant);
 Vue.use(ElementUI);
 Vue.config.productionTip = false
 import { Form } from 'vant';
+import { Button } from 'vant';
 
+Vue.use(Button);
 Vue.use(Form);
 import { NavBar } from 'vant';
 

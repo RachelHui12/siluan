@@ -14,6 +14,9 @@
     <div class="upload" @click="upload()">
       <el-button type="small" circle icon="el-icon-upload"></el-button>
     </div>
+    <div class="search" @click="search()">
+      <el-button type="small" circle icon="el-icon-search"></el-button>
+    </div>
   </div>
 
 </template>
@@ -28,6 +31,8 @@ import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { Dialog } from 'vant';
 import {mapGetters} from 'vuex'
 import store from '@/store'
+import axios from 'axios';
+import { Button } from 'vant';
 export default {
     
     data(){
@@ -73,14 +78,19 @@ export default {
             center:'getMapcenter',
             zoom:'getzoom'
           }),
-
+          'fullname': function(){
+              var center_json=this.mapOptions.map.getCenter();
+              return this.mapOptions.map.center;
+          }
   },
   mounted() {
     this.initMap();
-    // this.welcome();
+    //从数据库中加载所有四乱地物
   },
   beforeDestroy(){
       this.savemapoptions();
+      // this.$store.commit('GET_CENTER',this.mapOptions.map.center)
+      // console.log(this.mapOptions.map.center)
   },
   watch: {
     positions: function () {
@@ -116,9 +126,18 @@ export default {
     },
     mapStyle: function () {
       this.mapOptions.map.setStyle(this.mapStyle)
+    },
+    mapOptions:function(){
+      var center_json=this.mapOptions.map.getCenter();
+       var center=[center_json.lng,center_json.lat];
+       this.$store.dispatch('changecenter',center);
+       var zoom = this.mapOptions.map.getZoom();
+       this.$store.dispatch('changezoom',zoom);
+       console.log(zoom);
     }
   },
   methods: {
+
      savemapoptions(){
        var center_json=this.mapOptions.map.getCenter();
        var center=[center_json.lng,center_json.lat];
@@ -126,6 +145,10 @@ export default {
        var zoom = this.mapOptions.map.getZoom();
        this.$store.dispatch('changezoom',zoom);
        console.log(zoom);
+     },
+     test()
+     {
+console.log('ok');
      },
     //初始化地图
     initMap() {
@@ -137,14 +160,108 @@ export default {
         center:this.center, // starting position
         zoom: this.zoom, // starting zoom,
       });
-       console.log(this.mapOptions.map.getCenter());
-
+      console.log(this.mapOptions.map.center);
+      axios.get('api/init').then((response)=>{
+        var polys=response.data;
+         
+        console.log(response.data);
+        this.mapOptions.map.on('load',() => {
+          this.mapOptions.map.addLayer({
+            'id': 'objectlayer',
+            'type': 'fill',
+            'source': {
+              'type':'geojson',
+              'data':polys
+            },
+            'layout': {},
+            'paint': {
+            'fill-color': '#088',
+            'fill-opacity': 0.8
+          }
+          });
+          // this.mapOptions.map.addLayer({
+          //   'id': 'objectlayer-highlight',
+          //   'type': 'fill',
+          //   'source': {
+          //     'type':'geojson',
+          //     'data':polys
+          //   },
+          //   'layout': {},
+          //   'paint': {
+          //   'fill-color': '#FFFF00',
+          //   'fill-opacity': 0.8
+          // },
+          //   'filter': ['in', 'FIPS', '']
+          // });
+        });
+      });
+//function和=>区别？
+      this.mapOptions.map.on('click', 'objectlayer', (e) => {
+          var feature = e.features[0];
+          var name = e.features[0].properties.name;
+          var type = e.features[0].properties.genre;
+          let description = `
+              <div class="ib">
+                <p><strong>名字:</strong>${name}</p>
+                <p><strong>类型:</strong>${type}</p>
+                <button id="solved" >是</button>
+                <button id="unsolved" value=${name}>否</button>
+              </div>
+            `;
+    
+          var popup = new mapboxgl.Popup()
+              .setLngLat(e.lngLat)
+              .setHTML(description)
+              .addTo(this.mapOptions.map);
+          // this.$nextTick(()=>{可以获取dom渲染之后的，mounted是渲染之前的
+          this.$nextTick(()=>{
+            var x = document.getElementById("solved");
+            document.getElementById("solved").onclick=function(){
+              console.log('已解决');
+              popup.remove();
+            };
+            var x = document.getElementById("solved");
+            document.getElementById("unsolved").onclick=function(name){
+              console.log(this.value);
+              Dialog.confirm({
+                  message: '确定该地不是四乱建筑？',
+                })
+                  .then(() => {
+                    // on confirm
+                    // delete
+                    axios.post('api/delete',{'id':this.value});
+                    location.reload();
+                    // this.mapOptions.map.remove()
+                  })
+                  .catch(() => {
+                    // on cancel
+                    // location.reload();
+                  });
+              popup.remove();
+            };
+          })
+        });
+        console.log(this.center);
+        this.mapOptions.map.on("wheel", function (e) {
+            console.log("A wheel event occurred.");
+            // var range = map.getZoom();
+            console.log(e.lngLat);
+        });
+        this.mapOptions.map.on('mousemove', function(e) {
+          console.log('A mousemove event has occurred.');
+          // var center_json=map.getCenter();
+          // var center=[center_json.lng,center_json.lat];
+          // this.$store.dispatch('changecenter',center);
+          // var zoom = this.mapOptions.map.getZoom();
+          // this.$store.dispatch('changezoom',zoom);
+          console.log(e.lngLat);
+        });
       this.mapOptions.draw = new MapboxDraw({
-        displayControlsDefault: false,
-        controls: {
-          point:true,
-          polygon: true,
-          trash: true
+          displayControlsDefault: false,
+          controls: {
+            point:true,
+            polygon: true,
+            trash: true
         }
       });
       var nav = new mapboxgl.NavigationControl();
@@ -172,6 +289,9 @@ export default {
       this.mapOptions.map.on('draw.update', this.updateArea)
       this.mapOptions.map.on('draw.create', this.updateArea);
       this.mapOptions.map.on('draw.delete', this.updateArea);
+
+
+
     },
     forwardGeocoder(query) {
       var matchingFeatures = [];
@@ -339,7 +459,6 @@ export default {
     },
     inputmarker(obj){
         console.log(obj);
-        EventBus.$emit("upload",obj['features']);
         store.dispatch('changefeatures',obj);
         this.$router.push('/form');
     },
@@ -352,7 +471,16 @@ export default {
       else{
       this.inputmarker(re);
       }
+    },
+    search()
+    {
+      var bbox=0;
+      var features = map.queryRenderedFeatures(bbox, {
+          layers: ['counties']
+          });
     }
+  },
+  destroyed() {
   },
 }
 </script>
@@ -410,6 +538,14 @@ export default {
   top: 200px;
   z-index: 1;
   display: flex;
+}
+.search{
+  position: fixed;
+  right: 9px;
+  top: 235px;
+  z-index: 1;
+  display: flex;
+
 }
 .position-wrap {
   display: flex;

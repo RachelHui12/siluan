@@ -32,5 +32,37 @@ def upload():
     mycol.insert_one(information)
     return 'ok'
 
+@app.route('/siluan/api/v1.0/delete', methods=['POST'])
+def delete():
+    id = request.get_json()
+    myid = id['id']
+    mycol = mydb["collection_1"]
+    myquery = { "name": myid }
+    mycol.delete_one(myquery)
+    return 'ok'
+
+
+@app.route('/siluan/api/v1.0/init', methods=['GET'])
+def init():
+    mycol = mydb["collection_1"]
+    mydoc = mycol.find()
+    arr=[]
+    geojson={ "type": "FeatureCollection",
+            "features": []}
+    
+    for i,x in enumerate(mydoc):
+        geojson["features"].append({
+            "type": "Feature",
+            "properties":{
+                "id":i,
+                "name":x['name'],
+                'genre':x['type']
+            },
+            "geometry":x['fea']['features'][0]['geometry']
+        })
+        a={'genre':x['type'],'features':x['fea'],'name':x['name']}
+        arr.append(a)
+    return geojson
+
 if __name__ == '__main__':
     app.run(debug=True)

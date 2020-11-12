@@ -104,7 +104,6 @@ export default {
           date:this.dates,
           fea:this.feature
         }
-        
         console.log(upload);
         axios.post('api/upload',upload);
         this.$router.push('/map');
